@@ -4,6 +4,9 @@
 name: Finalize PR 599 translations
 
 on:
+  push:
+    branches:
+      - main
   workflow_dispatch:
 
 permissions:
