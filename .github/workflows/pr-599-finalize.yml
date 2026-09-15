@@ -1,0 +1,61 @@
+# SPDX-FileCopyrightText: Copyright 2026 Ayobami Haastrup
+# SPDX-License-Identifier: AGPL-3.0-only OR LicenseRef-Element-Commercial
+
+name: Finalize PR 599 translations
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  finalize:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout PR branch
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: fix/scheduled-room-deletion-timestamp-227
+          persist-credentials: true
+      - name: Install pnpm, Node.js and dependencies
+        uses: pnpm/setup@703c52620218391530e48b9e8870d5c0082e1b9b # v2.1.0
+        with:
+          runtime: node
+      - name: Regenerate extracted translations
+        run: pnpm i18n:extract
+      - name: Synchronize English source messages into translated catalogue
+        run: |
+          node --input-type=module <<'NODE'
+          import fs from "node:fs";
+          const extracted = JSON.parse(fs.readFileSync("translations/extracted/en.json", "utf8"));
+          const translatedPath = "translations/translated/en.json";
+          const translated = JSON.parse(fs.readFileSync(translatedPath, "utf8"));
+          for (const id of [
+            "pages.rooms.deletion.scheduled.title",
+            "pages.rooms.deletion.scheduled.description",
+          ]) {
+            if (!extracted[id]?.message) throw new Error(`Missing extracted message: ${id}`);
+            translated[id] = { message: extracted[id].message };
+          }
+          const sorted = Object.fromEntries(Object.entries(translated).sort(([a], [b]) => a.localeCompare(b)));
+          fs.writeFileSync(translatedPath, `${JSON.stringify(sorted, null, 2)}\n`);
+          NODE
+      - name: Compile translations
+        run: pnpm i18n:compile
+      - name: Validate requested output and project
+        run: |
+          grep -q 'pages.rooms.deletion.scheduled.title' translations/compiled/en.json
+          grep -q 'pages.rooms.deletion.scheduled.description' translations/compiled/en.json
+          pnpm lint
+          pnpm knip
+      - name: Remove PR-branch helper and commit generated outputs
+        run: |
+          rm -f .github/workflows/pr-599-compiled-translations.yml
+          git config user.name "Ayobami Haastrup"
+          git config user.email "47716486+AyobamiH@users.noreply.github.com"
+          git add src/routes/_console.rooms.\$roomId.tsx translations/extracted/en.json translations/translated/en.json translations/compiled/en.json
+          git add -u .github/workflows/pr-599-compiled-translations.yml
+          git diff --cached --check
+          git commit -m "Regenerate compiled translations"
+          git push origin HEAD:fix/scheduled-room-deletion-timestamp-227
