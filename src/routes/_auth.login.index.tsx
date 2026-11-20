@@ -40,6 +40,7 @@ export const Route = createFileRoute("/_auth/login/")({
 
 function RouteComponent() {
   const { redirect } = Route.useSearch();
+  const sessionExpired = useAuthStore((store) => store.sessionExpired);
   const [serverName, setServerName] = useState(config.serverName ?? "");
   const [debouncedServerName, setDebouncedServerName, debouncer] =
     useDebouncedState(
@@ -189,6 +190,15 @@ function RouteComponent() {
 
   return (
     <Form.Root onSubmit={onSubmit}>
+      {sessionExpired && (
+        <output>
+          <FormattedMessage
+            id="pages.login.session_expired"
+            defaultMessage="Your session is no longer valid. Please sign in again."
+            description="Message after the server rejects the current access token"
+          />
+        </output>
+      )}
       {/* Discovery failing on the typed server name is what marks the field
           invalid; the insecure-origin and failed-authorization messages below
           render without doing so. */}

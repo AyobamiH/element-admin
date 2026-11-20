@@ -8,6 +8,7 @@ import { queryOptions } from "@tanstack/react-query";
 import * as v from "valibot";
 
 import { accessToken } from "@/stores/auth";
+import { authenticatedFetch as fetch } from "@/utils/authenticated-fetch";
 import { ensureResponseOk } from "@/utils/fetch";
 
 const baseOptions = async (

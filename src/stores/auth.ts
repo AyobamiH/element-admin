@@ -82,6 +82,9 @@ interface StaticCredential {
 }
 
 interface AuthStoreState {
+  /** Whether the server rejected the current access token. */
+  sessionExpired: boolean;
+
   /** The current authorization session, if any */
   authorizationSession: AuthorizationSession | null;
 
@@ -122,7 +125,7 @@ interface AuthStoreActions {
     abortSignal?: AbortSignal,
   ): Promise<string>;
 
-  clear: () => Promise<void>;
+  clear: (sessionExpired?: boolean) => Promise<void>;
 }
 
 const isExpired = (credentials: DynamicCredential): boolean => {
@@ -139,6 +142,7 @@ export const useAuthStore = create<AuthStore>()(
       (set, get) => ({
         authorizationSession: null,
         credentials: null,
+        sessionExpired: false,
 
         async startAuthorizationSession(rawServerName, clientId, redirect) {
           const serverName = normalizeServerName(rawServerName);
@@ -260,7 +264,11 @@ export const useAuthStore = create<AuthStore>()(
             accessToken,
             static: true,
           } satisfies StaticCredential;
-          await set({ authorizationSession: null, credentials });
+          await set({
+            authorizationSession: null,
+            credentials,
+            sessionExpired: false,
+          });
         },
 
         async saveCredentials(
@@ -280,11 +288,19 @@ export const useAuthStore = create<AuthStore>()(
             expiresAt,
             static: false,
           } satisfies DynamicCredential;
-          await set({ authorizationSession: null, credentials });
+          await set({
+            authorizationSession: null,
+            credentials,
+            sessionExpired: false,
+          });
         },
 
-        async clear() {
-          await set({ authorizationSession: null, credentials: null });
+        async clear(sessionExpired = false) {
+          await set({
+            authorizationSession: null,
+            credentials: null,
+            sessionExpired,
+          });
 
           // Reset the query client
           await reset();

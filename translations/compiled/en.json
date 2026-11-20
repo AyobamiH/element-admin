@@ -1720,6 +1720,12 @@
       "value": "Server name"
     }
   ],
+  "pages.login.session_expired": [
+    {
+      "type": 0,
+      "value": "Your session is no longer valid. Please sign in again."
+    }
+  ],
   "pages.login.title": [
     {
       "type": 0,
