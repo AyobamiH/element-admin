@@ -34,7 +34,7 @@ test.describe("rejected sessions", () => {
       await page.reload();
 
       await expect(page).toHaveURL(/\/login/);
-      await expect(page.getByRole("status")).toHaveText(expiredMessage);
+      await expect(page.locator("output")).toHaveText(expiredMessage);
       await expect(page.getByRole("grid")).toBeHidden();
       await expect
         .poll(() =>
@@ -155,7 +155,7 @@ test.describe("rejected sessions", () => {
       .getByRole("button", { name: "Revoke token" })
       .click();
     await expect(page).toHaveURL(/\/login/);
-    await expect(page.getByRole("status")).toHaveText(expiredMessage);
+    await expect(page.locator("output")).toHaveText(expiredMessage);
   });
 
   test("an old request cannot sign out replacement credentials", async ({
