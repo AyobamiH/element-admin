@@ -60,7 +60,21 @@ test.describe("rejected sessions", () => {
                     resolve(
                       keys.result
                         .map(String)
-                        .filter((key) => key.startsWith("tanstack-query")),
+                        .filter((key) => key.startsWith("tanstack-query-"))
+                        // The login shell can reload public discovery and language data.
+                        .filter(
+                          (key) =>
+                            ![
+                              "language",
+                              "wellKnownDiscovery",
+                              "authMetadataDiscovery",
+                              "clientRegistration",
+                            ].includes(
+                              JSON.parse(
+                                key.slice("tanstack-query-".length),
+                              )[0],
+                            ),
+                        ),
                     ),
                   );
                   keys.addEventListener("error", () => reject(keys.error));
