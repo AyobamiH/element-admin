@@ -23,6 +23,13 @@ const storage: AsyncStorage<PersistedQuery> = {
     return await get(key);
   },
   async setItem(key: string, value: PersistedQuery) {
+    // The persister schedules writes after a query resolves. Ignore a queued
+    // write if logout removed that query, or a new session replaced its state.
+    if (
+      queryClient.getQueryCache().get(value.queryHash)?.state !== value.state
+    ) {
+      return;
+    }
     await set(key, value);
   },
   async removeItem(key: string) {

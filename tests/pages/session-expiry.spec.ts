@@ -6,8 +6,12 @@ import { http, HttpResponse } from "msw";
 
 import { heading } from "../helpers";
 import { loginAs } from "../mocks/auth";
-import { masFailing, matrixFailing } from "../mocks/failing";
-import { SERVER_NAME } from "../mocks/fixtures";
+import { masFailing, masFailingPost, matrixFailing } from "../mocks/failing";
+import {
+  DEFAULT_PERSONAL_SESSIONS,
+  personalSessionId,
+  SERVER_NAME,
+} from "../mocks/fixtures";
 import { expect, test } from "../mocks/test";
 
 const expiredMessage = "Your session is no longer valid. Please sign in again.";
@@ -41,6 +45,31 @@ test.describe("rejected sessions", () => {
           ),
         )
         .toBeNull();
+      await expect
+        .poll(() =>
+          page.evaluate(
+            () =>
+              new Promise<string[]>((resolve, reject) => {
+                const open = indexedDB.open("keyval-store");
+                open.addEventListener("error", () => reject(open.error));
+                open.addEventListener("success", () => {
+                  const db = open.result;
+                  const transaction = db.transaction("keyval", "readonly");
+                  const keys = transaction.objectStore("keyval").getAllKeys();
+                  keys.addEventListener("success", () =>
+                    resolve(
+                      keys.result
+                        .map(String)
+                        .filter((key) => key.startsWith("tanstack-query")),
+                    ),
+                  );
+                  keys.addEventListener("error", () => reject(keys.error));
+                  transaction.addEventListener("complete", () => db.close());
+                });
+              }),
+          ),
+        )
+        .toEqual([]);
       await page.reload();
       await expect(page).toHaveURL(/\/login/);
       await expect(page.getByRole("grid")).toBeHidden();
@@ -90,7 +119,13 @@ test.describe("rejected sessions", () => {
   }) => {
     await loginAs(page);
     network.use(matrixFailing("/_matrix/client/v1/auth_metadata", 401));
+    const response = page.waitForResponse(
+      (r) =>
+        r.url().endsWith("/_matrix/client/v1/auth_metadata") &&
+        r.status() === 401,
+    );
     await page.goto("/");
+    await response;
     await expect
       .poll(() =>
         page.evaluate(
@@ -101,6 +136,26 @@ test.describe("rejected sessions", () => {
       )
       .not.toBeNull();
     await expect(page.getByText(expiredMessage)).toBeHidden();
+  });
+
+  test("signs out when an authenticated mutation is rejected", async ({
+    page,
+    network,
+  }) => {
+    await loginAs(page);
+    await page.goto(
+      `/personal-tokens/${personalSessionId(DEFAULT_PERSONAL_SESSIONS, 0)}`,
+    );
+    network.use(
+      masFailingPost("/api/admin/v1/personal-sessions/:id/revoke", 401),
+    );
+    await page.getByRole("button", { name: "Revoke token" }).click();
+    await page
+      .getByRole("dialog")
+      .getByRole("button", { name: "Revoke token" })
+      .click();
+    await expect(page).toHaveURL(/\/login/);
+    await expect(page.getByRole("status")).toHaveText(expiredMessage);
   });
 
   test("an old request cannot sign out replacement credentials", async ({
